@@ -1,0 +1,187 @@
+@import "tailwindcss" source(none);
+
+@custom-variant light (&:where(.light, .light *));
+
+@source "../src";
+@import "tw-animate-css";
+
+/* ── Portal Theme Variables (from pages/shared.css) ── */
+:root {
+  --bg: #050505;
+  --bg-rgb: 5, 5, 5;
+  --surface: #0f0f0f;
+  --surface-hover: #141414;
+  --card-black: rgba(8, 8, 8, 0.95);
+  --border: rgba(255, 255, 255, 0.04);
+  --border-bright: rgba(255, 255, 255, 0.08);
+  --text: #ffffff;
+  --text-rgb: 255, 255, 255;
+  --text-inverse: #000000;
+  --muted: #a1a1aa;
+  --accent: #ffffff;
+  --success: #10b981;
+  --pending: #f59e0b;
+  --danger: #ef4444;
+  --radius: 12px;
+  --gold: #c5a059;
+  --silver: #71717a;
+}
+
+html.light {
+  --bg: #f5f5f7;
+  --bg-rgb: 245, 245, 247;
+  --surface: #ffffff;
+  --surface-hover: #fcfcfc;
+  --card-black: rgba(255, 255, 255, 0.98);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-bright: rgba(0, 0, 0, 0.12);
+  --text: #1d1d1f;
+  --text-rgb: 29, 29, 31;
+  --text-inverse: #ffffff;
+  --muted: #6e6e73;
+  --accent: #000000;
+}
+
+/* Map portal tokens to Tailwind v4 utilities + keep shadcn tokens working */
+@theme inline {
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-pending: var(--pending);
+  --color-danger: var(--danger);
+  --color-gold: var(--gold);
+  --color-silver: var(--silver);
+  --color-border: var(--border);
+  --color-border-bright: var(--border-bright);
+
+  /* shadcn aliases → portal tokens */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--text);
+  --color-primary-foreground: var(--bg);
+  --color-secondary: var(--surface-hover);
+  --color-secondary-foreground: var(--text);
+  --color-muted-foreground: var(--muted);
+  --color-accent-foreground: var(--bg);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: #ffffff;
+  --color-input: var(--border-bright);
+  --color-ring: var(--border-bright);
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    border-color: var(--color-border);
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+}
+
+/* ── Shared Animations ── */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@utility animate-slide-up {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility animate-slide-in {
+  animation: slideIn 0.2s ease-out;
+}
+@utility animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+@utility animate-pulse-ring {
+  animation: pulse-ring 2.5s infinite;
+}
+
+/* ── Portal-specific utilities ── */
+@utility portal-container {
+  width: 100%;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@utility font-mono-data {
+  font-family: var(--font-mono);
+}

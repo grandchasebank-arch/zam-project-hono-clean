@@ -1,0 +1,8 @@
+{
+  "name": "zamproject-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-04",
+  "vars": {
+    "SUPABASE_URL": "https://aibptakbrksycxyyypjq.supabase.co"
+  }
+}

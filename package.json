@@ -1,0 +1,16 @@
+{
+  "name": "zamproject",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm -w backend run dev",
+    "dev:web": "npm -w frontend run dev",
+    "deploy:api": "npm -w backend run deploy",
+    "deploy:web": "npm -w frontend run deploy"
+  }
+}
