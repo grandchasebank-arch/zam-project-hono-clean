@@ -5,3 +5,7 @@ dist
 *.log
 .pnpm-debug.log
 .tmp
+
+
+#Ignore cursor AI rules
+.cursor\rules\codacy.mdc

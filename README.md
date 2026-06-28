@@ -75,3 +75,9 @@ From the root directory, you can run:
 *   `pnpm run dev:api`: Start the backend in development mode.
 *   `pnpm run dev:web`: Start the frontend in development mode.
 *   `pnpm run deploy`: Deploy both services to Cloudflare.
+
+
+Get-ChildItem -Path . -Filter "node_modules" -Recurse | Remove-Item -Force -Recurse
+
+npx repomix
+pnpm dev 2>&1 | Tee-Object -FilePath debug.log -Append

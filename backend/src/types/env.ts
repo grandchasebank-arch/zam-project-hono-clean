@@ -4,6 +4,7 @@ export type Bindings = {
   SUPABASE_ANON_KEY: string;
   ALLOWED_ORIGINS?: string;
   RESEND_API_KEY?: string;
+  RESEND_FROM: string;
 };
 
 export type Variables = {

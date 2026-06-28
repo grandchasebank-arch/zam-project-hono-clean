@@ -36,10 +36,11 @@ export interface NotifyUpgradeInput {
   adminNotes?: string;
   sb: SupabaseClient;
   resendApiKey?: string;
+  resendFrom?: string;
 }
 
 export async function notifyUpgradeStatus(input: NotifyUpgradeInput): Promise<void> {
-  const { memberId, memberEmail, status, adminNotes, sb, resendApiKey } = input;
+  const { memberId, memberEmail, status, adminNotes, sb, resendApiKey, resendFrom } = input;
   const contentFn = CONTENT[status as UpgradeStatus];
   if (!contentFn) return;
 
@@ -59,8 +60,8 @@ export async function notifyUpgradeStatus(input: NotifyUpgradeInput): Promise<vo
   }
 
   // 2. Resend email — fire-and-forget, never blocks
-  if (resendApiKey && memberEmail) {
-    sendResendEmail({ apiKey: resendApiKey, to: memberEmail, subject: title, text: message }).catch(
+  if (resendApiKey && memberEmail && resendFrom) {
+    sendResendEmail({ apiKey: resendApiKey, from: resendFrom, to: memberEmail, subject: title, text: message }).catch(
       (err) => console.error("[notify] Resend email failed:", err)
     );
   }
@@ -68,11 +69,12 @@ export async function notifyUpgradeStatus(input: NotifyUpgradeInput): Promise<vo
 
 async function sendResendEmail(params: {
   apiKey: string;
+  from: string;
   to: string;
   subject: string;
   text: string;
 }): Promise<void> {
-  const { apiKey, to, subject, text } = params;
+  const { apiKey, from, to, subject, text } = params;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -80,7 +82,7 @@ async function sendResendEmail(params: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "SpaceX Membership <onboarding@resend.dev>",
+      from,
       to: [to],
       subject,
       text,

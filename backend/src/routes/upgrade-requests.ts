@@ -66,6 +66,7 @@ app.post("/", requireAuthWithMember, async (c) => {
     status: "PENDING",
     sb,
     resendApiKey: c.env.RESEND_API_KEY,
+    resendFrom: c.env.RESEND_FROM,
   }).catch((err) => console.error("[upgrade-requests] POST notify error:", err));
 
   return c.json({ success: true, data }, 201);
@@ -106,6 +107,7 @@ app.patch("/:id", requireAuth, async (c) => {
       adminNotes: updateBody.admin_notes,
       sb,
       resendApiKey: c.env.RESEND_API_KEY,
+      resendFrom: c.env.RESEND_FROM,
     }).catch((err) => console.error("[upgrade-requests] PATCH notify error:", err));
   }
 

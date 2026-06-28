@@ -1,17 +1,19 @@
-/**
- * API layer — all data fetching goes through here.
+﻿/**
+ * API layer â€” all data fetching goes through here.
  * Calls the Hono backend at VITE_API_BASE_URL (default: http://localhost:8787).
  */
 import type { Member } from "@/types/user";
 import type { TierOption, UpgradeRequest } from "@/types/upgrade";
 import type { PaymentRecord } from "@/types/payment";
 import type { AppNotification } from "@/types/notification";
+import type { Badge } from "@/types/badge";
 
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787").replace(/\/$/, "");
+const API = (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL;
+const BASE = (API ?? "http://localhost:8787").replace(/\/$/, "");
 
 const SESSION_KEY = "spacex_session";
 
-// ── Session helpers ──────────────────────────────────────────────────────────
+// â”€â”€ Session helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface StoredSession {
   member_id: string;
@@ -40,7 +42,7 @@ function authHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-// ── Fetch wrapper ─────────────────────────────────────────────────────────────
+// â”€â”€ Fetch wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function apiFetch<T>(
   path: string,
@@ -62,7 +64,7 @@ async function apiFetch<T>(
   return (json?.data ?? json) as T;
 }
 
-// ── Shape helpers ─────────────────────────────────────────────────────────────
+// â”€â”€ Shape helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -89,7 +91,7 @@ function clearanceLabel(tier: Tier | string): string {
 }
 
 function subtitleLabel(tier: Tier | string, status: string): string {
-  return `${tier} · ${status ?? "Active"}`;
+  return `${tier} Â· ${status ?? "Active"}`;
 }
 
 const TIER_PRICE_MAP: Record<string, string> = {
@@ -105,21 +107,32 @@ function statusLabel(raw: string): "Approved" | "Pending" | "Rejected" | "Under 
   return "Pending";
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function sendOTP(email: string) {
-  const data = await apiFetch<{ ok: boolean; email: string; _dev_code?: string }>(
-    "/auth/send-otp",
-    { method: "POST", body: JSON.stringify({ email }) }
-  );
-  return data;
+  const res = await fetch(`${BASE}/auth/send-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(payload?.error?.message ?? payload?.message ?? "Failed to send OTP");
+  }
+  return payload?.data ?? payload;
 }
 
 export async function verifyOTP(email: string, code: string) {
-  const data = await apiFetch<{ member_id: string; token: string }>(
-    "/auth/verify-otp",
-    { method: "POST", body: JSON.stringify({ email, code }) }
-  );
+  const res = await fetch(`${BASE}/auth/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  const payload = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(payload?.error?.message ?? payload?.message ?? "Failed to verify OTP");
+  }
+  const data = payload?.data ?? payload;
   const session: StoredSession = {
     member_id: data.member_id,
     email,
@@ -142,7 +155,7 @@ export async function signOut() {
   }
 }
 
-// ── Member ────────────────────────────────────────────────────────────────────
+// â”€â”€ Member â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapMember(raw: any): Member {
@@ -167,7 +180,7 @@ export async function getMember(): Promise<Member> {
   return mapMember(raw);
 }
 
-// ── Upgrade tiers ─────────────────────────────────────────────────────────────
+// â”€â”€ Upgrade tiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapTier(raw: any): TierOption {
@@ -193,7 +206,7 @@ export async function getUpgradeTiers(): Promise<TierOption[]> {
 }
 
 export async function submitUpgradeRequest(req: UpgradeRequest) {
-  // Map frontend field names → DB column names (from_tier / to_tier)
+  // Map frontend field names â†’ DB column names (from_tier / to_tier)
   const data = await apiFetch<{ id: string }>("/upgrade-requests", {
     method: "POST",
     body: JSON.stringify({
@@ -207,7 +220,7 @@ export async function submitUpgradeRequest(req: UpgradeRequest) {
   };
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
+// â”€â”€ Notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapNotification(raw: any): AppNotification {
@@ -248,7 +261,7 @@ export async function markAllNotificationsRead() {
   return { ok: true };
 }
 
-// ── Payment history — sourced from upgrade_requests ──────────────────────────
+// â”€â”€ Payment history â€” sourced from upgrade_requests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapPayment(raw: any): PaymentRecord {
@@ -284,7 +297,22 @@ export async function getPaymentById(id: string): Promise<PaymentRecord | null> 
   }
 }
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapBadge(raw: any): Badge {
+  return {
+    id: raw.id,
+    name: raw.name,
+    tierRequired: raw.tier_required ?? "Explorer",
+    description: raw.description ?? "",
+    iconUrl: raw.icon_url ?? null,
+  };
+}
+
+export async function getBadges(): Promise<Badge[]> {
+  const data = await apiFetch<unknown[]>("/badges");
+  return data.map(mapBadge);
+}
+// â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function adminNotifyMember(memberId: string, message: string) {
   await apiFetch("/admin/notify", {
@@ -293,3 +321,4 @@ export async function adminNotifyMember(memberId: string, message: string) {
   });
   return { ok: true, memberId, message };
 }
+
