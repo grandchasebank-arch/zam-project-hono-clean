@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Loader } from "@/components/shared/Loader";
-import { useUpgradeTiers } from "@/hooks/useUpgrade";
+import { usePendingRequests, useUpgradeTiers } from "@/hooks/useUpgrade";
 import { TierList } from "./TierList";
 import type { TierOption } from "@/types/upgrade";
 
@@ -9,6 +9,7 @@ const TIER_KEY = "spacex_selected_tier";
 
 export function UpgradeForm() {
   const { data: tiers = [], isLoading } = useUpgradeTiers();
+  const { data: pendingRequests = [] } = usePendingRequests(); // FIX: load pending for tier badges
   const [selected, setSelected] = useState<TierOption | null>(null);
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +38,7 @@ export function UpgradeForm() {
       <TierList
         tiers={tiers}
         selectedId={selected?.id ?? null}
+        pendingToTiers={pendingRequests.map((r) => r.to_tier)} // FIX: per-tier pending check
         onSelect={(t) => {
           setSelected(t);
           setError(false);
@@ -59,7 +61,7 @@ export function UpgradeForm() {
           }
           setSubmitting(true);
           sessionStorage.setItem(TIER_KEY, JSON.stringify(selected));
-          setTimeout(() => navigate("/processing"), 900);
+          navigate("/payment");
         }}
         className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-2xl border-0 bg-[var(--text)] px-4 py-[18px] text-[15px] font-bold tracking-[-0.01em] text-[var(--bg)] transition hover:brightness-90 disabled:opacity-30"
       >

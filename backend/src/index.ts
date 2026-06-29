@@ -25,8 +25,15 @@ app.use(logger());
 app.use("*", async (c, next) => {
   const raw = c.env.ALLOWED_ORIGINS ?? "http://localhost:5173";
   const allowedOrigins = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const localDevOrigin =
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/;
   const mw = cors({
-    origin: (origin) => (allowedOrigins.includes(origin) ? origin : null),
+    origin: (origin) => {
+      if (!origin) return allowedOrigins[0] ?? "http://localhost:5173";
+      if (allowedOrigins.includes(origin)) return origin;
+      if (c.env.DEV_BYPASS_MEMBER_ID && localDevOrigin.test(origin)) return origin;
+      return null;
+    },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     exposeHeaders: ["Content-Range"],

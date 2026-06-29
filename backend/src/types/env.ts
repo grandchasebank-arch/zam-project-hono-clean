@@ -5,6 +5,8 @@ export type Bindings = {
   ALLOWED_ORIGINS?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM: string;
+  /** Local dev only — member UUID to impersonate when Bearer token is `dev-bypass` */
+  DEV_BYPASS_MEMBER_ID?: string;
 };
 
 export type Variables = {

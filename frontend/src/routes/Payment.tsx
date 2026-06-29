@@ -48,9 +48,6 @@ export default function Payment() {
     setError(null)
     try {
       await submit.mutateAsync({
-        member_id: member.id,
-        member_email: member.email,
-        member_name: member.name,
         current_tier: member.tier,
         requested_tier: tier.name,
       })

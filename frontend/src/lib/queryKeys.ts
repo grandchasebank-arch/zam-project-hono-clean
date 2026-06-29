@@ -3,6 +3,7 @@ export const queryKeys = {
   notifications: () => ["notifications"] as const,
   history: () => ["history"] as const,
   upgradeTiers: () => ["upgradeTiers"] as const,
+  pendingRequests: () => ["pending-requests"] as const,
   badges: () => ["badges"] as const,
   session: () => ["session"] as const,
 };

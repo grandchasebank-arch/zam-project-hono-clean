@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API layer â€” all data fetching goes through here.
  * Calls the Hono backend at VITE_API_BASE_URL (default: http://localhost:8787).
  */
@@ -8,10 +8,12 @@ import type { PaymentRecord } from "@/types/payment";
 import type { AppNotification } from "@/types/notification";
 import type { Badge } from "@/types/badge";
 
-const API = (import.meta as unknown as { env: { VITE_API_BASE_URL?: string } }).env.VITE_API_BASE_URL;
-const BASE = (API ?? "http://localhost:8787").replace(/\/$/, "");
+const API = import.meta.env.VITE_API_BASE_URL as string | undefined;
+/** In dev, default to same-origin `/api` proxy so LAN/localhost URLs all work. */
+const BASE = (API ?? (import.meta.env.DEV ? "/api" : "http://localhost:8787")).replace(/\/$/, "");
 
 const SESSION_KEY = "spacex_session";
+export const DEV_BYPASS_TOKEN = "dev-bypass";
 
 // â”€â”€ Session helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -40,6 +42,31 @@ function authHeaders(): Record<string, string> {
   const token = getToken();
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };
+}
+
+/** Auto-login in Vite dev when VITE_DEV_MEMBER_ID is set (skips OTP). */
+export function initDevSession(): void {
+  if (typeof window === "undefined" || !import.meta.env.DEV) return;
+
+  const memberId = import.meta.env.VITE_DEV_MEMBER_ID as string | undefined;
+  if (!memberId) return;
+
+  const existing = getSession();
+  if (
+    existing?.token === DEV_BYPASS_TOKEN &&
+    existing.member_id === memberId
+  ) {
+    return;
+  }
+
+  const session: StoredSession = {
+    member_id: memberId,
+    email: (import.meta.env.VITE_DEV_MEMBER_EMAIL as string | undefined) ?? "operator@spacex.hq",
+    token: DEV_BYPASS_TOKEN,
+    issued_at: Date.now(),
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  console.info("[dev] auto session for member", memberId);
 }
 
 // â”€â”€ Fetch wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

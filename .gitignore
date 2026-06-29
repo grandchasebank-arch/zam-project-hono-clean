@@ -5,7 +5,11 @@ dist
 *.log
 .pnpm-debug.log
 .tmp
-
+package-lock.json
+repomix-output.xml
+repomix-*.md
+git-error-*.txt
+supabase/.temp
 
 #Ignore cursor AI rules
 .cursor\rules\codacy.mdc

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import html2canvas from "html2canvas";
 import { usePaymentById } from "@/hooks/useHistory";
+import { useCancelUpgrade } from "@/hooks/useUpgrade";
 import { Loader } from "@/components/shared/Loader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -205,8 +206,10 @@ function ReceiptPDF({ payment }: ReceiptPDFProps) {
 
 export function PaymentPreview({ id }: PaymentPreviewProps) {
   const { data: payment, isLoading } = usePaymentById(id || "");
+  const cancelUpgrade = useCancelUpgrade(); // FIX: cancel pending upgrade request
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false); // FIX: inline cancel confirm state
 
   const handleShareAsImage = async () => {
     if (!receiptRef.current) return;
@@ -341,7 +344,52 @@ export function PaymentPreview({ id }: PaymentPreviewProps) {
       </div>
 
       {/* Action Buttons */}
-      <div className="border-t border-[var(--border)] px-6 py-4">
+      <div className="border-t border-[var(--border)] px-6 py-4 space-y-3">
+        {payment.status === "Pending" && (
+          <div>
+            {!confirmCancel ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmCancel(true)} // FIX: show cancel confirm
+                className="w-full border-[#ef4444] text-[#ef4444] hover:bg-[#ef444420]"
+                size="sm"
+              >
+                Cancel Request
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-center text-xs text-[var(--muted)]">
+                  Cancel this pending upgrade request?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setConfirmCancel(false)} // FIX: dismiss cancel confirm
+                    size="sm"
+                  >
+                    Keep Request
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={cancelUpgrade.isPending}
+                    onClick={() => {
+                      cancelUpgrade.mutate(payment.id, {
+                        onSuccess: () => setConfirmCancel(false), // FIX: reset confirm after cancel
+                      });
+                    }}
+                    className="border-[#ef4444] text-[#ef4444] hover:bg-[#ef444420]"
+                    size="sm"
+                  >
+                    {cancelUpgrade.isPending ? "..." : "Confirm Cancel"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           {/* Download PDF */}
           <PDFDownloadLink

@@ -1,21 +1,21 @@
 import type { Tier } from "./user";
 
 export interface TierOption {
-  id: "tier-ex" | "tier-pi" | "tier-va";
+  id: string;
   name: Tier;
+  label: string;
   price: string;
-  priceValue: number;
-  clearance: string;
   description: string;
-  features: string[];
   benefits: string[];
-  variant: "explorer" | "pioneer" | "vanguard";
+  rank: number;
+  // FIX: legacy fields populated by api mapTier for existing UI components
+  clearance?: string;
+  features?: string[];
+  variant?: "explorer" | "pioneer" | "vanguard";
+  priceValue?: number;
 }
 
 export interface UpgradeRequest {
-  member_id: string;
-  member_email: string;
-  member_name: string;
   current_tier: string;
   requested_tier: Tier;
 }

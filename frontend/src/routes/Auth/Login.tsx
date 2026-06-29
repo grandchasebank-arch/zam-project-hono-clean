@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
+import { toast } from 'sonner'
 import { useSendOTP, useVerifyOTP } from '@/hooks/useAuth'
 import { useTheme } from '@/hooks/useTheme'
 import { Loader } from '@/components/shared/Loader'
@@ -39,8 +40,10 @@ export default function LoginPage() {
       setStep('otp')
       setCountdown(600)
       setTimeout(() => refs.current[0]?.focus(), 100)
-    } catch {
-      setEmailMsg({ t: 'Failed to send code. Try again.', type: 'error' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to send code. Try again.'
+      setEmailMsg({ t: msg, type: 'error' })
+      toast.error('Login failed', { description: msg }) // FIX: login send OTP toast
     }
   }
 
@@ -54,8 +57,16 @@ export default function LoginPage() {
     try {
       await verifyOTP.mutateAsync({ email, code })
       navigate('/dashboard')
-    } catch {
-      setOtpMsg({ t: 'Invalid or expired code.', type: 'error' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Invalid or expired code.'
+      setOtpMsg({ t: msg, type: 'error' })
+      if (msg.toLowerCase().includes('expired')) {
+        toast.error('Code expired', { description: 'Request a new code and try again.' }) // FIX: OTP expired toast
+      } else if (msg.toLowerCase().includes('invalid')) {
+        toast.error('Invalid code', { description: 'Check the code and try again.' }) // FIX: OTP invalid toast
+      } else {
+        toast.error('Login failed', { description: msg }) // FIX: login failed toast
+      }
     }
   }
 

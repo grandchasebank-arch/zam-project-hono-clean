@@ -12,8 +12,6 @@ import History from './routes/History'
 import Badges from './routes/Badges'
 import Notifications from './routes/Notifications'
 import Payment from './routes/Payment'
-import PaymentDetail from './components/payment/PaymentDetail'
-import Processing from './routes/Processing'
 import Login from './routes/Auth/Login'
 import AdminIndex from './routes/Admin/Index'
 import AdminNotifications from './routes/Admin/Notifications'
@@ -53,7 +51,6 @@ export function App() {
             <Route path="/badges" element={<Badges />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/payment" element={<Payment />} />
-            <Route path="/processing" element={<Processing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<AdminIndex />} />
             <Route path="/admin/notifications" element={<AdminNotifications />} />

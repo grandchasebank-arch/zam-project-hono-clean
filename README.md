@@ -1,83 +1,77 @@
-# Zam Project - Hono & React Monorepo
+# ZAM App
 
-A clean, professional full-stack monorepo featuring a Hono backend (Cloudflare Workers) and a React frontend (Vite), managed with pnpm workspaces.
+Full-stack monorepo: **Hono** API on Cloudflare Workers + **React** SPA (Vite), managed with **pnpm** workspaces.
 
----
+## Prerequisites
 
-## 🚀 Beginner Setup Guide
+- [Node.js](https://nodejs.org/) 18+
+- [pnpm](https://pnpm.io/installation) (`npm install -g pnpm`)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (for backend dev)
+- Supabase project (database + auth)
 
-Follow these steps to get the project running on your local machine.
+## Quick start
 
-### 1. Prerequisites
-Make sure you have the following installed:
-*   [Node.js](https://nodejs.org/) (Latest LTS version recommended)
-*   [pnpm](https://pnpm.io/installation) (`npm install -g pnpm`)
-
-### 2. Clone the Repository
-Open your terminal and run:
-```bash
-git clone https://github.com/grandchasebank-arch/zam-project-hono-clean.git
-cd zam-project-hono-clean
-```
-
-### 3. Install Dependencies
-Install all necessary packages for the entire workspace:
 ```bash
 pnpm install
+
+# Backend secrets (edit with your Supabase keys — not committed)
+# backend/.dev.vars
+
+# Frontend env
+cp frontend/.env.example frontend/.env.local
 ```
 
-### 4. Configure Environment Variables
-You need to set up the environment variables for both the backend and frontend.
+Edit `frontend/.env.local`:
 
-#### Backend Configuration
-Create a `.env` file inside the `backend/` folder:
-```bash
-cp backend/.env.example backend/.env # If .env.example exists
-```
-Ensure it contains:
-*   `SUPABASE_URL`
-*   `SUPABASE_ANON_KEY`
-*   `SUPABASE_SERVICE_ROLE_KEY`
-
-#### Frontend Configuration
-Create a `.env` file inside the `frontend/` folder:
 ```env
-VITE_API_BASE_URL=http://localhost:8787
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_API_BASE_URL=/api
 ```
 
-### 5. Start Development Servers
-You will need two terminal windows running at the same time.
+Run both services in separate terminals:
 
-**Terminal 1: Start the Backend API**
 ```bash
-pnpm run dev:api
+pnpm run dev:api   # Hono backend → http://localhost:8787
+pnpm run dev:web   # Vite frontend → http://localhost:5173
 ```
-*Your API will be running at `http://localhost:8787`*
 
-**Terminal 2: Start the Frontend App**
+Apply database migrations:
+
 ```bash
-pnpm run dev:web
+supabase db push
 ```
-*Your website will be running at `http://localhost:5173`*
 
----
+## Project structure
 
-## 📂 Project Structure
-*   `backend/`: Hono API (Cloudflare Workers)
-*   `frontend/`: React + Vite frontend
-*   `packages/shared-types/`: Common TypeScript types
-*   `lib/db/`: Shared database schemas and migrations
+```
+zam-app/
+├── backend/              Hono API (Cloudflare Workers)
+├── frontend/             React + Vite SPA
+├── packages/shared-types/  Shared TypeScript types
+├── lib/db/               Drizzle schema reference (not runtime)
+├── supabase/migrations/  Source of truth for DB schema
+└── UPGRADE_REQUESTS.md   Feature documentation (upgrade module)
+```
 
-## 🛠️ Available Scripts
-From the root directory, you can run:
-*   `pnpm install`: Install all dependencies.
-*   `pnpm run build`: Build both frontend and backend.
-*   `pnpm run dev:api`: Start the backend in development mode.
-*   `pnpm run dev:web`: Start the frontend in development mode.
-*   `pnpm run deploy`: Deploy both services to Cloudflare.
+## Scripts
 
+| Command | Description |
+|---------|-------------|
+| `pnpm install` | Install all workspace dependencies |
+| `pnpm run dev:api` | Start backend (wrangler dev) |
+| `pnpm run dev:web` | Start frontend (Vite) |
+| `pnpm run build` | Build all packages |
+| `pnpm run deploy` | Build + deploy API and web |
 
-Get-ChildItem -Path . -Filter "node_modules" -Recurse | Remove-Item -Force -Recurse
+## Documentation
 
-npx repomix
-pnpm dev 2>&1 | Tee-Object -FilePath debug.log -Append
+- **[UPGRADE_REQUESTS.md](./UPGRADE_REQUESTS.md)** — Upgrade requests module: API, business rules, E2E results, known issues
+- **[Notion — Upgrade Requests](https://app.notion.com/p/38db4ab87a2f81e0a69ccb831a93462b)** — Same doc in Notion (under ZAM Project — Architecture Summary)
+
+## Local dev notes
+
+- Backend reads secrets from `backend/.dev.vars` (not committed).
+- Frontend proxies `/api` → `http://localhost:8787` in dev (`vite.config.ts`).
+- Dev bypass login: set `VITE_DEV_MEMBER_ID` in `.env.local` and `DEV_BYPASS_MEMBER_ID` in `.dev.vars` to the same member UUID.
+- Manual API tests: `node backend/test.mjs`, `node backend/test-lifecycle.mjs`

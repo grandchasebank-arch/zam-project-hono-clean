@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createSupabase } from "../lib/supabase";
-import { requireAuth, requireAuthWithMember } from "../middleware/auth";
+import { requireAdmin, requireAuthWithMember } from "../middleware/auth";
 import { AppError } from "../lib/errors";
 import { notifyUpgradeStatus } from "../lib/notify";
 import type { Bindings, Variables } from "../types/env";
@@ -22,12 +22,42 @@ interface UpgradeRequestRow {
   updated_at?: string;
 }
 
+interface TierRow {
+  id: string;
+  name: string;
+  label: string;
+  price: number;
+  description: string | null;
+  benefits: string[];
+  rank: number;
+  is_active: boolean;
+}
+
 // GET /upgrade-requests — own requests
 app.get("/", requireAuthWithMember, async (c) => {
   const memberId = c.get("memberId");
   if (!memberId) throw new AppError(404, "Member not found for this account", "NOT_FOUND");
   const sb = createSupabase(c.env);
   const data = await sb.select("upgrade_requests", `member_id=eq.${memberId}&order=created_at.desc`);
+  return c.json({ success: true, data });
+});
+
+// FIX: GET /upgrade-requests/pending — member's pending requests only
+app.get("/pending", requireAuthWithMember, async (c) => {
+  const memberId = c.get("memberId");
+  if (!memberId) throw new AppError(404, "Member not found for this account", "NOT_FOUND");
+  const sb = createSupabase(c.env);
+  const rows = await sb.select<UpgradeRequestRow>(
+    "upgrade_requests",
+    `member_id=eq.${memberId}&status=eq.PENDING&order=created_at.desc`
+  );
+  const data = rows.map((row) => ({
+    id: row.id,
+    from_tier: row.from_tier,
+    to_tier: row.to_tier,
+    status: row.status,
+    created_at: row.created_at,
+  }));
   return c.json({ success: true, data });
 });
 
@@ -51,10 +81,44 @@ app.post("/", requireAuthWithMember, async (c) => {
   const sb = createSupabase(c.env);
   const body = await c.req.json();
 
+  const fromTierName = body.from_tier ?? body.current_tier;
+  const toTierName = body.to_tier ?? body.requested_tier;
+
+  // FIX: validate tiers exist in DB
+  const fromTier = await sb.selectOne<TierRow>(
+    "tiers",
+    `name=eq.${fromTierName}&is_active=eq.true`
+  );
+  const toTier = await sb.selectOne<TierRow>(
+    "tiers",
+    `name=eq.${toTierName}&is_active=eq.true`
+  );
+  if (!fromTier || !toTier) {
+    throw new AppError(400, "Invalid tier.", "BAD_REQUEST");
+  }
+
+  // FIX: requested tier must be higher rank
+  if (toTier.rank <= fromTier.rank) {
+    throw new AppError(400, "Requested tier must be higher than current tier.", "BAD_REQUEST");
+  }
+
+  // FIX: block duplicate pending request for the same target tier only
+  const pendingSameTier = await sb.selectOne<UpgradeRequestRow>(
+    "upgrade_requests",
+    `member_id=eq.${memberId}&status=eq.PENDING&to_tier=eq.${toTierName}`
+  );
+  if (pendingSameTier) {
+    throw new AppError(
+      409,
+      "You already have a pending request for this tier. Cancel it first or choose a different tier.",
+      "CONFLICT"
+    );
+  }
+
   // Map frontend field names → DB column names; ignore any client-sent status
   const data = await sb.insert<UpgradeRequestRow>("upgrade_requests", {
-    from_tier: body.from_tier ?? body.current_tier,
-    to_tier: body.to_tier ?? body.requested_tier,
+    from_tier: fromTierName,
+    to_tier: toTierName,
     member_id: memberId,
     status: "PENDING",
   });
@@ -72,8 +136,28 @@ app.post("/", requireAuthWithMember, async (c) => {
   return c.json({ success: true, data }, 201);
 });
 
+// FIX: DELETE /upgrade-requests/:id — member cancels own pending request
+app.delete("/:id", requireAuthWithMember, async (c) => {
+  const memberId = c.get("memberId");
+  if (!memberId) throw new AppError(404, "Member not found for this account", "NOT_FOUND");
+  const sb = createSupabase(c.env);
+  const row = await sb.selectOne<UpgradeRequestRow>(
+    "upgrade_requests",
+    `id=eq.${c.req.param("id")}`
+  );
+  if (!row) throw new AppError(404, "Upgrade request not found", "NOT_FOUND");
+  if (row.member_id !== memberId) {
+    throw new AppError(403, "Forbidden", "FORBIDDEN");
+  }
+  if (row.status !== "PENDING") {
+    throw new AppError(400, "Only pending requests can be cancelled.", "BAD_REQUEST");
+  }
+  await sb.remove("upgrade_requests", `id=eq.${c.req.param("id")}`);
+  return c.json({ success: true, message: "Request cancelled." });
+});
+
 // PATCH /upgrade-requests/:id — admin status transitions
-app.patch("/:id", requireAuth, async (c) => {
+app.patch("/:id", requireAdmin, async (c) => {
   const sb = createSupabase(c.env);
   const rawBody = await c.req.json();
 
@@ -90,13 +174,29 @@ app.patch("/:id", requireAuth, async (c) => {
 
   const oldStatus = current.status;
   const newStatus: string | undefined = updateBody.status;
+  const authUserId = c.get("authUserId");
 
   const data = await sb.update<UpgradeRequestRow>(
     "upgrade_requests",
     `id=eq.${c.req.param("id")}`,
-    { ...updateBody, updated_at: new Date().toISOString() }
+    {
+      ...updateBody,
+      updated_at: new Date().toISOString(),
+      reviewed_at: new Date().toISOString(), // FIX: always set reviewed_at
+      reviewed_by: authUserId, // FIX: always set reviewed_by
+    }
   );
   if (!data) throw new AppError(404, "Upgrade request not found", "NOT_FOUND");
+
+  if (newStatus === "APPROVED" && oldStatus !== "APPROVED") {
+    await sb.insert("tier_change_history", {
+      member_id: current.member_id,
+      changed_by: authUserId,
+      previous_tier: current.from_tier,
+      new_tier: current.to_tier,
+    });
+    await sb.update("members", `id=eq.${current.member_id}`, { tier: current.to_tier });
+  }
 
   // Notify only when status actually changed AND notify !== false
   if (shouldNotify && newStatus && newStatus !== oldStatus) {

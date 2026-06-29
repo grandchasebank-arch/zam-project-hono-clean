@@ -4,10 +4,11 @@ import type { TierOption } from "@/types/upgrade";
 interface TierCardProps {
   tier: TierOption;
   selected: boolean;
+  isPendingReview?: boolean;
   onSelect: (tier: TierOption) => void;
 }
 
-export function TierCard({ tier, selected, onSelect }: TierCardProps) {
+export function TierCard({ tier, selected, isPendingReview = false, onSelect }: TierCardProps) {
   const isVanguard = tier.variant === "vanguard";
   const hintBg = isVanguard
     ? { background: "rgba(197, 160, 89, 0.1)", color: "var(--gold)" }
@@ -26,7 +27,13 @@ export function TierCard({ tier, selected, onSelect }: TierCardProps) {
         tier.variant === "explorer" && !selected ? "opacity-85" : "",
       ].join(" ")}
     >
-      {selected && (
+      {isPendingReview && (
+        <div className="absolute right-6 top-5 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[var(--pending)]">
+          PENDING — request in review
+        </div>
+      )}
+
+      {selected && !isPendingReview && (
         <div className="absolute right-6 top-5 flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[var(--success)]">
           <Check size={12} strokeWidth={3} /> Selected
         </div>

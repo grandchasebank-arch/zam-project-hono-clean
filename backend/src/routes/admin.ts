@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createSupabase } from "../lib/supabase";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireAdmin } from "../middleware/auth";
 import { AppError } from "../lib/errors";
 import type { Bindings, Variables } from "../types/env";
 
@@ -47,6 +47,38 @@ app.patch("/members/:id", requireAuth, async (c) => {
 app.get("/upgrade-requests", requireAuth, async (c) => {
   const sb = createSupabase(c.env);
   const data = await sb.select("upgrade_requests", "order=created_at.desc");
+  return c.json({ success: true, data });
+});
+
+// FIX: GET /admin/tiers — list all tiers
+app.get("/tiers", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const data = await sb.select("tiers", "order=rank.asc");
+  return c.json({ success: true, data });
+});
+
+// FIX: POST /admin/tiers — create tier
+app.post("/tiers", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const body = await c.req.json();
+  const data = await sb.insert("tiers", body);
+  return c.json({ success: true, data }, 201);
+});
+
+// FIX: PATCH /admin/tiers/:id — update tier
+app.patch("/tiers/:id", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const body = await c.req.json();
+  const data = await sb.update("tiers", `id=eq.${c.req.param("id")}`, body);
+  if (!data) throw new AppError(404, "Tier not found", "NOT_FOUND");
+  return c.json({ success: true, data });
+});
+
+// FIX: DELETE /admin/tiers/:id — soft delete
+app.delete("/tiers/:id", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const data = await sb.update("tiers", `id=eq.${c.req.param("id")}`, { is_active: false });
+  if (!data) throw new AppError(404, "Tier not found", "NOT_FOUND");
   return c.json({ success: true, data });
 });
 
