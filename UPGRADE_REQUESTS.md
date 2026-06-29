@@ -7,7 +7,7 @@
 
 ## Status
 
-Reflects DB-driven tiers refactor, admin auth, cancel flow, sonner toasts, E2E verification (8/9 pass), and repo cleanup (2026-06-29).
+Reflects DB-driven tiers refactor, admin auth, cancel flow, admin upgrade review UI, sonner toasts, E2E verification (8/9 pass), and repo cleanup (2026-06-29).
 
 ---
 
@@ -61,7 +61,8 @@ Reflects DB-driven tiers refactor, admin auth, cancel flow, sonner toasts, E2E v
 - `frontend/src/types/upgrade.ts` — DB-shaped `TierOption`, `UpgradeRequest`
 - `frontend/src/routes/History.tsx` — payment history list
 - `frontend/src/components/history/PaymentPreview.tsx` — detail drawer + cancel flow
-- `frontend/src/main.tsx` — Sonner `<Toaster>`
+- `frontend/src/routes/Admin/UpgradeRequests.tsx` — admin review queue (approve / reject / under review)
+- `frontend/src/hooks/useAdminUpgrade.ts` — admin list + review mutations
 
 ### Database schema
 
@@ -158,13 +159,16 @@ Test member: `operator@spacex.hq` (dev-bypass). Admin: `admin@spacex.hq` (OTP).
 - **`PaymentSummary.tsx` hardcoded PENDING** — `/payment` shows "Security Status: PENDING" before submit regardless of actual state.
 - **409 error message in UI** — Some paths may surface generic "HTTP 409" instead of server message.
 - **`payment_reference` / `payment_verified` unused** — DB columns exist; no real payment integration in submit flow.
-- **No dedicated admin UI** — Backend admin routes exist; no frontend admin panel for upgrade review.
+- **`reviewed_by` FK** — Now stores admin `members.id` (not auth UUID).
+- **No dedicated admin UI** — ~~Backend only~~ **Resolved:** `/admin/upgrade-requests` UI added.
 
 ---
 
 ## Resolved
 
 - ~~No admin role check on PATCH~~ — `requireAdmin` middleware
+- ~~No dedicated admin UI for upgrade review~~ — `/admin/upgrade-requests` (2026-06-29)
+- ~~`reviewed_by` stored auth UUID~~ — now stores admin `members.id`
 - ~~Hardcoded TIERS in config.ts~~ — Migrated to `tiers` table
 - ~~No tier-order validation~~ — Server validates rank on POST
 - ~~No duplicate pending check~~ — Per-tier PENDING block with 409

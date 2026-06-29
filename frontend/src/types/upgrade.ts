@@ -19,3 +19,24 @@ export interface UpgradeRequest {
   current_tier: string;
   requested_tier: Tier;
 }
+
+export type UpgradeRequestStatus =
+  | "PENDING"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED";
+
+export interface AdminUpgradeRequest {
+  id: string;
+  member_id: string;
+  from_tier: string;
+  to_tier: string;
+  status: UpgradeRequestStatus;
+  payment_reference?: string | null;
+  payment_verified?: boolean;
+  admin_notes?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  member_name?: string;
+  member_email?: string;
+}

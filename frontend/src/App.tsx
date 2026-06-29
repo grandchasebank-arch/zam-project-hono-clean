@@ -1,8 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientContextProvider } from './context/QueryClientContext'
-import { PageLayout } from './components/shared/PageLayout'
-
-// Route components
 import RootLayout from './routes/Root'
 import Index from './routes/Index'
 import Dashboard from './routes/Dashboard'
@@ -13,8 +10,6 @@ import Badges from './routes/Badges'
 import Notifications from './routes/Notifications'
 import Payment from './routes/Payment'
 import Login from './routes/Auth/Login'
-import AdminIndex from './routes/Admin/Index'
-import AdminNotifications from './routes/Admin/Notifications'
 
 function ErrorBoundary() {
   return (
@@ -52,8 +47,6 @@ export function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/admin" element={<AdminIndex />} />
-            <Route path="/admin/notifications" element={<AdminNotifications />} />
             <Route path="*" element={<ErrorBoundary />} />
           </Route>
         </Routes>

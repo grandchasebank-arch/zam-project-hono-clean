@@ -14,6 +14,7 @@ import profitDistributions from "./routes/profit-distributions";
 import tierChangeHistory from "./routes/tier-change-history";
 import eventBookings from "./routes/event-bookings";
 import tiers from "./routes/tiers";
+import settings from "./routes/settings";
 import admin from "./routes/admin";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -57,6 +58,7 @@ app.route("/profit-distributions", profitDistributions);
 app.route("/tier-change-history", tierChangeHistory);
 app.route("/event-bookings", eventBookings);
 app.route("/tiers", tiers);
+app.route("/settings", settings);
 app.route("/admin", admin);
 
 export default app;

@@ -1,6 +1,7 @@
 packages:
   - 'backend'
   - 'frontend'
+  - 'admin'
   - 'packages/*'
 
 allowBuilds:

@@ -3,11 +3,13 @@ import { createSupabase } from "../lib/supabase";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { AppError } from "../lib/errors";
 import type { Bindings, Variables } from "../types/env";
+import type { SettingsRow } from "../types/settings";
+import { SETTINGS_PATCH_FIELDS } from "../types/settings";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // POST /admin/notify — send notification to a member
-app.post("/notify", requireAuth, async (c) => {
+app.post("/notify", requireAdmin, async (c) => {
   const { member_id, type, title, message } = await c.req.json();
   if (!member_id || !title || !message) {
     throw new AppError(400, "member_id, title, and message are required", "VALIDATION_ERROR");
@@ -25,14 +27,14 @@ app.post("/notify", requireAuth, async (c) => {
 });
 
 // GET /admin/members — list all members (admin)
-app.get("/members", requireAuth, async (c) => {
+app.get("/members", requireAdmin, async (c) => {
   const sb = createSupabase(c.env);
   const data = await sb.select("members", "order=created_at.desc");
   return c.json({ success: true, data });
 });
 
 // PATCH /admin/members/:id — update any member (admin)
-app.patch("/members/:id", requireAuth, async (c) => {
+app.patch("/members/:id", requireAdmin, async (c) => {
   const sb = createSupabase(c.env);
   const body = await c.req.json();
   const data = await sb.update("members", `id=eq.${c.req.param("id")}`, {
@@ -44,7 +46,7 @@ app.patch("/members/:id", requireAuth, async (c) => {
 });
 
 // GET /admin/upgrade-requests — all upgrade requests (admin)
-app.get("/upgrade-requests", requireAuth, async (c) => {
+app.get("/upgrade-requests", requireAdmin, async (c) => {
   const sb = createSupabase(c.env);
   const data = await sb.select("upgrade_requests", "order=created_at.desc");
   return c.json({ success: true, data });
@@ -79,6 +81,30 @@ app.delete("/tiers/:id", requireAdmin, async (c) => {
   const sb = createSupabase(c.env);
   const data = await sb.update("tiers", `id=eq.${c.req.param("id")}`, { is_active: false });
   if (!data) throw new AppError(404, "Tier not found", "NOT_FOUND");
+  return c.json({ success: true, data });
+});
+
+// GET /admin/settings — read platform config (admin)
+app.get("/settings", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const data = await sb.selectOne<SettingsRow>("settings", "id=eq.1");
+  if (!data) throw new AppError(404, "Settings not found", "NOT_FOUND");
+  return c.json({ success: true, data });
+});
+
+// PATCH /admin/settings — update platform config (admin)
+app.patch("/settings", requireAdmin, async (c) => {
+  const sb = createSupabase(c.env);
+  const body = await c.req.json();
+  const update: Record<string, unknown> = {};
+  for (const key of SETTINGS_PATCH_FIELDS) {
+    if (body[key] !== undefined) update[key] = body[key];
+  }
+  if (Object.keys(update).length === 0) {
+    throw new AppError(400, "No valid settings fields provided", "VALIDATION_ERROR");
+  }
+  const data = await sb.update<SettingsRow>("settings", "id=eq.1", update);
+  if (!data) throw new AppError(404, "Settings not found", "NOT_FOUND");
   return c.json({ success: true, data });
 });
 

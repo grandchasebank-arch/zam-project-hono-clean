@@ -5,17 +5,21 @@ import type { Bindings, Variables } from "../types/env";
 
 /** Fixed token used with DEV_BYPASS_MEMBER_ID (local dev only). */
 export const DEV_BYPASS_TOKEN = "dev-bypass";
+/** Admin portal dev bypass (local dev only). */
+export const DEV_BYPASS_ADMIN_TOKEN = "dev-bypass-admin";
 
-/**
- * Resolves a Bearer token to an authUserId.
- * Tries Supabase JWT first; falls back to checking our custom sessions table.
- */
 async function resolveToken(
   token: string,
   env: Bindings
 ): Promise<{ authUserId: string | null; memberId: string | null }> {
   if (env.DEV_BYPASS_MEMBER_ID && token === DEV_BYPASS_TOKEN) {
     return { authUserId: env.DEV_BYPASS_MEMBER_ID, memberId: env.DEV_BYPASS_MEMBER_ID };
+  }
+  if (env.DEV_BYPASS_ADMIN_MEMBER_ID && token === DEV_BYPASS_ADMIN_TOKEN) {
+    return {
+      authUserId: env.DEV_BYPASS_ADMIN_MEMBER_ID,
+      memberId: env.DEV_BYPASS_ADMIN_MEMBER_ID,
+    };
   }
 
   const sb = createSupabase(env);

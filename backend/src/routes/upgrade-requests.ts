@@ -3,7 +3,9 @@ import { createSupabase } from "../lib/supabase";
 import { requireAdmin, requireAuthWithMember } from "../middleware/auth";
 import { AppError } from "../lib/errors";
 import { notifyUpgradeStatus } from "../lib/notify";
+import { getAppSettings, resolveMailFrom, resolveMailReplyTo } from "../lib/settings";
 import type { Bindings, Variables } from "../types/env";
+import type { SupabaseClient } from "../lib/supabase";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -124,13 +126,15 @@ app.post("/", requireAuthWithMember, async (c) => {
   });
 
   // Look up member email for notification (fire-and-forget)
+  const mail = await resolveMailConfig(sb, c.env);
   notifyUpgradeStatus({
     memberId,
     memberEmail: await getMemberEmail(sb, memberId),
     status: "PENDING",
     sb,
     resendApiKey: c.env.RESEND_API_KEY,
-    resendFrom: c.env.RESEND_FROM,
+    resendFrom: mail.from,
+    resendReplyTo: mail.replyTo,
   }).catch((err) => console.error("[upgrade-requests] POST notify error:", err));
 
   return c.json({ success: true, data }, 201);
@@ -174,7 +178,10 @@ app.patch("/:id", requireAdmin, async (c) => {
 
   const oldStatus = current.status;
   const newStatus: string | undefined = updateBody.status;
-  const authUserId = c.get("authUserId");
+  const reviewerMemberId = c.get("memberId");
+  if (!reviewerMemberId) {
+    throw new AppError(404, "Admin member not found for this account", "NOT_FOUND");
+  }
 
   const data = await sb.update<UpgradeRequestRow>(
     "upgrade_requests",
@@ -183,7 +190,7 @@ app.patch("/:id", requireAdmin, async (c) => {
       ...updateBody,
       updated_at: new Date().toISOString(),
       reviewed_at: new Date().toISOString(), // FIX: always set reviewed_at
-      reviewed_by: authUserId, // FIX: always set reviewed_by
+      reviewed_by: reviewerMemberId, // FK → members.id
     }
   );
   if (!data) throw new AppError(404, "Upgrade request not found", "NOT_FOUND");
@@ -191,7 +198,7 @@ app.patch("/:id", requireAdmin, async (c) => {
   if (newStatus === "APPROVED" && oldStatus !== "APPROVED") {
     await sb.insert("tier_change_history", {
       member_id: current.member_id,
-      changed_by: authUserId,
+      changed_by: reviewerMemberId,
       previous_tier: current.from_tier,
       new_tier: current.to_tier,
     });
@@ -200,6 +207,7 @@ app.patch("/:id", requireAdmin, async (c) => {
 
   // Notify only when status actually changed AND notify !== false
   if (shouldNotify && newStatus && newStatus !== oldStatus) {
+    const mail = await resolveMailConfig(sb, c.env);
     notifyUpgradeStatus({
       memberId: current.member_id,
       memberEmail: await getMemberEmail(sb, current.member_id),
@@ -207,12 +215,21 @@ app.patch("/:id", requireAdmin, async (c) => {
       adminNotes: updateBody.admin_notes,
       sb,
       resendApiKey: c.env.RESEND_API_KEY,
-      resendFrom: c.env.RESEND_FROM,
+      resendFrom: mail.from,
+      resendReplyTo: mail.replyTo,
     }).catch((err) => console.error("[upgrade-requests] PATCH notify error:", err));
   }
 
   return c.json({ success: true, data });
 });
+
+async function resolveMailConfig(sb: SupabaseClient, env: Bindings) {
+  const settings = await getAppSettings(sb);
+  return {
+    from: resolveMailFrom(settings, env.RESEND_FROM),
+    replyTo: resolveMailReplyTo(settings, env.RESEND_FROM),
+  };
+}
 
 async function getMemberEmail(
   sb: ReturnType<typeof createSupabase>,

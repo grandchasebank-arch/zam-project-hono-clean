@@ -339,13 +339,3 @@ export async function getBadges(): Promise<Badge[]> {
   const data = await apiFetch<unknown[]>("/badges");
   return data.map(mapBadge);
 }
-// â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-export async function adminNotifyMember(memberId: string, message: string) {
-  await apiFetch("/admin/notify", {
-    method: "POST",
-    body: JSON.stringify({ member_id: memberId, title: "Admin Notice", message }),
-  });
-  return { ok: true, memberId, message };
-}
-

@@ -6,15 +6,18 @@
   "workspaces": [
     "backend",
     "frontend",
+    "admin",
     "packages/*"
   ],
   "scripts": {
     "dev": "turbo run dev",
     "dev:api": "pnpm --filter backend run dev",
     "dev:web": "pnpm --filter frontend run dev",
+    "dev:admin": "pnpm --filter admin run dev",
     "build": "pnpm -r run build",
     "deploy:api": "pnpm --filter backend run deploy",
     "deploy:web": "pnpm --filter frontend run deploy",
+    "deploy:admin": "pnpm --filter admin run build",
     "deploy": "pnpm run build && pnpm run deploy:api && pnpm run deploy:web"
   },
   "devDependencies": {
