@@ -1,10 +1,5 @@
 import { Authenticated, Refine } from "@refinedev/core";
-import {
-  RefineThemes,
-  ThemedLayoutV2,
-  ThemedTitleV2,
-  useNotificationProvider,
-} from "@refinedev/antd";
+import { RefineThemes, useNotificationProvider } from "@refinedev/antd";
 import { App as AntdApp, ConfigProvider, theme } from "antd";
 import routerProvider, {
   CatchAllNavigate,
@@ -21,6 +16,7 @@ import {
   ThunderboltOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
+import { AdminLayout } from "@/components/AdminLayout";
 
 import { authProvider } from "@/providers/authProvider";
 import { dataProvider } from "@/providers/dataProvider";
@@ -37,29 +33,18 @@ import { NotifyPage } from "@/pages/notify";
 import "@refinedev/antd/dist/reset.css";
 import "./index.css";
 
-function AdminLayout() {
-  return (
-    <ThemedLayoutV2
-      defaultMode="dark"
-      Title={({ collapsed }) => (
-        <ThemedTitleV2
-          collapsed={collapsed}
-          text="HQ Control"
-          icon={<DashboardOutlined />}
-        />
-      )}
-    >
-      <Outlet />
-    </ThemedLayoutV2>
-  );
-}
-
 export function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <ConfigProvider
+        warning={{ strict: false }}
         theme={{
-          ...RefineThemes.BlueDark,
+          ...RefineThemes.Blue,
           algorithm: theme.darkAlgorithm,
         }}
       >

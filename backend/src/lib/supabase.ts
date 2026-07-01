@@ -79,6 +79,28 @@ export function createSupabase(env: Bindings) {
         throw new Error(`Supabase delete(${table}) failed: ${msg}`);
       }
     },
+
+    async uploadStorage(
+      bucket: string,
+      path: string,
+      body: ArrayBuffer,
+      contentType: string
+    ): Promise<void> {
+      const r = await fetch(`${url}/storage/v1/object/${bucket}/${path}`, {
+        method: "POST",
+        headers: {
+          apikey: svcKey,
+          Authorization: `Bearer ${svcKey}`,
+          "Content-Type": contentType,
+          "x-upsert": "false",
+        },
+        body,
+      });
+      if (!r.ok) {
+        const msg = await r.text();
+        throw new Error(`Supabase storage upload(${bucket}/${path}) failed: ${msg}`);
+      }
+    },
   };
 }
 

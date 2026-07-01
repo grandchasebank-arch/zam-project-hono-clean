@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 .env.local
+backend/.dev.vars
 *.tsbuildinfo
 .wrangler
 *.log

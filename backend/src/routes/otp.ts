@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { createSupabase } from "../lib/supabase";
+import { sendEmail } from "../lib/mail";
+import { getAppSettings, resolveMailFrom } from "../lib/settings";
 import { AppError } from "../lib/errors";
 import type { Bindings, Variables } from "../types/env";
 
@@ -16,9 +18,33 @@ app.post("/send-otp", async (c) => {
 
   await sb.insert("otp_codes", { email, code, expires_at, used: false, attempts: 0 });
 
-  // In production: send email with code via transactional email service
-  // For MVP: code is returned in response (remove before production)
-  return c.json({ success: true, data: { ok: true, _dev_code: code } });
+  const settings = await getAppSettings(sb);
+  const from = resolveMailFrom(settings, c.env.RESEND_FROM);
+  const siteName = settings?.site_name?.trim() || "Member Portal";
+
+  let emailSent = false;
+  let emailError: string | undefined;
+  try {
+    emailSent = await sendEmail(c.env, {
+      from: from || c.env.RESEND_FROM || "noreply@localhost",
+      to: email,
+      subject: `${siteName} — your sign-in code`,
+      text: `Your one-time sign-in code is ${code}. It expires in 10 minutes.`,
+    });
+  } catch (err) {
+    emailError = err instanceof Error ? err.message : String(err);
+    console.error("[otp] Email send failed:", err);
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      ok: true,
+      email_sent: emailSent,
+      ...(emailError && c.env.DEV_BYPASS_MEMBER_ID ? { _email_error: emailError } : {}),
+      ...(emailSent ? {} : { _dev_code: code }),
+    },
+  });
 });
 
 // POST /auth/verify-otp — verify code, create session token

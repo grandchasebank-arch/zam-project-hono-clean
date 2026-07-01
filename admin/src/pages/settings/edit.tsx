@@ -33,7 +33,6 @@ export function SettingsEditPage() {
         <Collapse
           accordion
           defaultActiveKey={["branding"]}
-          bordered
           style={{ background: "transparent" }}
           items={[
             {

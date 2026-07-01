@@ -1,64 +1,164 @@
-import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { BenefitsList } from '@/components/payment/BenefitsList'
-import { PaymentSummary } from '@/components/payment/PaymentSummary'
-import { SuccessState } from '@/components/payment/SuccessState'
-import { Loader } from '@/components/shared/Loader'
-import { useSubmitUpgrade } from '@/hooks/useUpgrade'
-import { useMember } from '@/hooks/useMember'
-import type { TierOption } from '@/types/upgrade'
-
-const TIER_KEY = 'spacex_selected_tier'
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BenefitsList } from "@/components/payment/BenefitsList";
+import { PaymentInstructions } from "@/components/payment/PaymentInstructions";
+import { PaymentSummary } from "@/components/payment/PaymentSummary";
+import { ReceiptUploadForm } from "@/components/payment/ReceiptUploadForm";
+import { SuccessState } from "@/components/payment/SuccessState";
+import { Loader } from "@/components/shared/Loader";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { usePublicSettings } from "@/hooks/usePublicSettings";
+import { useSubmitUpgrade, useUpgradeRequest } from "@/hooks/useUpgrade";
+import { useMember } from "@/hooks/useMember";
+import { REQUEST_SESSION_KEY, TIER_SESSION_KEY } from "@/lib/upgradeSession";
+import type { TierOption } from "@/types/upgrade";
 
 export default function Payment() {
-  const navigate = useNavigate()
-  const { data: member } = useMember()
-  const submit = useSubmitUpgrade()
-  const [tier, setTier] = useState<TierOption | null>(null)
-  const [done, setDone] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const { data: member } = useMember();
+  const { data: flags, isLoading: flagsLoading } = useFeatureFlags();
+  const { data: settings } = usePublicSettings();
+  const submit = useSubmitUpgrade();
+
+  const [tier, setTier] = useState<TierOption | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [receiptDone, setReceiptDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const paymentInstructions = flags?.payment_instructions ?? false;
+  const receiptUpload = flags?.receipt_upload ?? false;
+  const splitPayment = flags?.split_payment ?? false;
+
+  const { data: request, isLoading: requestLoading } = useUpgradeRequest(
+    paymentInstructions ? requestId : null
+  );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const raw = sessionStorage.getItem(TIER_KEY)
+    if (typeof window === "undefined") return;
+    const raw = sessionStorage.getItem(TIER_SESSION_KEY);
     if (!raw) {
-      navigate('/upgrade')
-      return
+      navigate("/upgrade");
+      return;
     }
     try {
-      setTier(JSON.parse(raw) as TierOption)
+      setTier(JSON.parse(raw) as TierOption);
     } catch {
-      navigate('/upgrade')
+      navigate("/upgrade");
+      return;
     }
-  }, [navigate])
+    const rid = sessionStorage.getItem(REQUEST_SESSION_KEY);
+    if (rid) setRequestId(rid);
+  }, [navigate]);
 
-  if (!tier || !member) {
+  if (flagsLoading || !tier || !member) {
     return (
       <div className="flex justify-center pt-20">
         <Loader size={28} />
       </div>
-    )
+    );
+  }
+
+  if (receiptDone) {
+    return <SuccessState variant="receipt" />;
   }
 
   if (done) {
-    return <SuccessState />
+    return <SuccessState variant="request" />;
   }
 
+  // ── New flow: payment instructions + optional receipt upload ──
+  if (paymentInstructions) {
+    if (!requestId) {
+      return (
+        <div className="py-12 text-center">
+          <p className="mb-4 text-sm text-[var(--muted)]">
+            No active upgrade request found. Confirm your tier selection first.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/upgrade")}
+            className="rounded-2xl bg-[var(--text)] px-6 py-3 text-sm font-bold text-[var(--bg)]"
+          >
+            Back to tier selection
+          </button>
+        </div>
+      );
+    }
+
+    if (requestLoading || !request) {
+      return (
+        <div className="flex justify-center pt-20">
+          <Loader size={28} />
+        </div>
+      );
+    }
+
+    const uploadableStatuses = [
+      "REQUESTED",
+      "AWAITING_PAYMENT",
+      "PENDING",
+      "REJECTED",
+    ];
+    if (splitPayment) uploadableStatuses.push("PARTIALLY_PAID");
+
+    const canUpload =
+      receiptUpload &&
+      request.status !== "APPROVED" &&
+      uploadableStatuses.includes(request.status);
+
+    return (
+      <>
+        <PaymentInstructions
+          tier={tier}
+          request={request}
+          supportEmail={settings?.support_email}
+          siteName={settings?.site_name}
+        />
+
+        {canUpload && (
+          <ReceiptUploadForm
+            requestId={requestId}
+            totalAmount={Number(request.total_amount) || tier.priceValue || 0}
+            splitPaymentEnabled={splitPayment}
+            onSuccess={() => {
+              sessionStorage.removeItem(TIER_SESSION_KEY);
+              sessionStorage.removeItem(REQUEST_SESSION_KEY);
+              setReceiptDone(true);
+            }}
+          />
+        )}
+
+        {receiptUpload && request.status === "PAYMENT_SUBMITTED" && !canUpload && (
+          <button
+            type="button"
+            onClick={() => navigate("/history")}
+            className="mt-4 w-full rounded-2xl border border-[var(--border)] bg-transparent px-4 py-[16px] text-[15px] font-bold text-[var(--text)]"
+          >
+            View status in History
+          </button>
+        )}
+      </>
+    );
+  }
+
+  // ── Legacy flow: submit request on this page ──
   const handleSubmit = async () => {
-    setError(null)
+    setError(null);
     try {
       await submit.mutateAsync({
         current_tier: member.tier,
         requested_tier: tier.name,
-      })
-      sessionStorage.removeItem(TIER_KEY)
-      setDone(true)
+      });
+      sessionStorage.removeItem(TIER_SESSION_KEY);
+      sessionStorage.removeItem(REQUEST_SESSION_KEY);
+      setDone(true);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : 'Failed to submit. Please try again.',
-      )
+        e instanceof Error ? e.message : "Failed to submit. Please try again."
+      );
     }
-  }
+  };
 
   return (
     <>
@@ -86,12 +186,12 @@ export default function Payment() {
         disabled={submit.isPending}
         className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[var(--text)] px-4 py-[18px] text-[15px] font-bold text-[var(--bg)] transition hover:brightness-90 disabled:opacity-30"
       >
-        {submit.isPending ? <Loader size={16} /> : 'Submit Upgrade Request'}
+        {submit.isPending ? <Loader size={16} /> : "Submit Upgrade Request"}
       </button>
 
       {error && (
         <p className="mt-3 text-center text-[11px] text-[#ef4444]">{error}</p>
       )}
     </>
-  )
+  );
 }

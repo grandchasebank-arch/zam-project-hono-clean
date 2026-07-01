@@ -6,4 +6,8 @@ export const queryKeys = {
   pendingRequests: () => ["pending-requests"] as const,
   badges: () => ["badges"] as const,
   session: () => ["session"] as const,
+  featureFlags: () => ["feature-flags"] as const,
+  publicSettings: () => ["public-settings"] as const,
+  upgradeRequest: (id: string) => ["upgrade-request", id] as const,
+  receipts: (requestId: string) => ["receipts", requestId] as const,
 };

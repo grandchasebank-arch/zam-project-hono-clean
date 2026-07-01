@@ -5,7 +5,7 @@ import { Alert, Button, Space, Table, Tag, Typography } from "antd";
 import { Link } from "react-router-dom";
 import type { ApiMember, ApiUpgradeRequest } from "@/lib/api";
 
-const { Text } = Typography;
+const { Paragraph, Text } = Typography;
 const BANNER_MS = 6000;
 
 const statusColor: Record<string, string> = {
@@ -60,11 +60,10 @@ export function UpgradeRequestListPage() {
         />
       )}
 
-      <List
-        title="Upgrade requests"
-        subTitle="Approve or reject member tier upgrades."
-        canCreate={false}
-      >
+      <List title="Upgrade requests" canCreate={false}>
+        <Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Approve or reject member tier upgrades.
+        </Paragraph>
         <Table {...tableProps} rowKey="id">
           <Table.Column
             title="Member"

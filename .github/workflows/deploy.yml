@@ -1,0 +1,124 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+jobs:
+  deploy-api:
+    name: Deploy API (Worker)
+    runs-on: ubuntu-latest
+    outputs:
+      worker_url: ${{ steps.deploy.outputs.worker_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy Worker (secrets + vars)
+        id: deploy
+        working-directory: backend
+        run: |
+          pipe_secret() {
+            name="$1"
+            value="$2"
+            if [ -z "$value" ]; then
+              echo "Missing GitHub secret: $name"
+              exit 1
+            fi
+            printf '%s' "$value" | pnpm exec wrangler secret put "$name"
+          }
+          pipe_secret SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
+          pipe_secret SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+          pipe_secret RESEND_API_KEY "$RESEND_API_KEY"
+
+          OUTPUT=$(pnpm exec wrangler deploy \
+            --var "RESEND_FROM:${RESEND_FROM}" \
+            --var "EMAIL_PROVIDER:${EMAIL_PROVIDER}" \
+            --var "ALLOWED_ORIGINS:${ALLOWED_ORIGINS}" 2>&1) || {
+            echo "$OUTPUT"
+            exit 1
+          }
+          echo "$OUTPUT"
+          URL=$(echo "$OUTPUT" | grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1)
+          if [ -z "$URL" ]; then
+            URL="${{ secrets.VITE_API_BASE_URL }}"
+          fi
+          echo "worker_url=$URL" >> "$GITHUB_OUTPUT"
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
+
+  deploy-frontend:
+    name: Deploy frontend (Pages)
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm --filter frontend run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_API_BASE_URL: ${{ needs.deploy-api.outputs.worker_url }}
+
+      - name: Deploy Pages
+        working-directory: frontend
+        run: pnpm exec wrangler pages deploy dist --project-name=zamproject-frontend
+
+  deploy-admin:
+    name: Deploy admin (Pages)
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build admin
+        run: pnpm --filter admin run build
+        env:
+          VITE_API_BASE_URL: ${{ needs.deploy-api.outputs.worker_url }}
+
+      - name: Deploy Pages
+        working-directory: admin
+        run: pnpm exec wrangler pages deploy dist --project-name=zamproject-admin

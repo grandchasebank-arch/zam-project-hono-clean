@@ -1,27 +1,66 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Loader } from "@/components/shared/Loader";
-import { usePendingRequests, useUpgradeTiers } from "@/hooks/useUpgrade";
+import { useMember } from "@/hooks/useMember";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
+import {
+  usePendingRequests,
+  useSubmitUpgrade,
+  useUpgradeTiers,
+} from "@/hooks/useUpgrade";
+import { REQUEST_SESSION_KEY, TIER_SESSION_KEY } from "@/lib/upgradeSession";
 import { TierList } from "./TierList";
 import type { TierOption } from "@/types/upgrade";
 
-const TIER_KEY = "spacex_selected_tier";
-
 export function UpgradeForm() {
   const { data: tiers = [], isLoading } = useUpgradeTiers();
-  const { data: pendingRequests = [] } = usePendingRequests(); // FIX: load pending for tier badges
+  const { data: pendingRequests = [] } = usePendingRequests();
+  const { data: member } = useMember();
+  const paymentInstructions = useFeatureFlag("payment_instructions");
+  const submit = useSubmitUpgrade();
   const [selected, setSelected] = useState<TierOption | null>(null);
   const [error, setError] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  if (isLoading) {
+  if (isLoading || !member) {
     return (
       <div className="flex justify-center py-12">
         <Loader size={28} />
       </div>
     );
   }
+
+  const handleConfirm = async () => {
+    if (!selected) {
+      setError(true);
+      return;
+    }
+
+    sessionStorage.setItem(TIER_SESSION_KEY, JSON.stringify(selected));
+
+    if (!paymentInstructions) {
+      navigate("/payment");
+      return;
+    }
+
+    const existing = pendingRequests.find((r) => r.to_tier === selected.name);
+    if (existing) {
+      sessionStorage.setItem(REQUEST_SESSION_KEY, existing.id);
+      navigate("/payment");
+      return;
+    }
+
+    try {
+      const created = await submit.mutateAsync({
+        current_tier: member.tier,
+        requested_tier: selected.name,
+      });
+      sessionStorage.setItem(REQUEST_SESSION_KEY, created.id);
+      navigate("/payment");
+    } catch {
+      // toasts handled in mutation
+    }
+  };
 
   return (
     <div>
@@ -38,7 +77,7 @@ export function UpgradeForm() {
       <TierList
         tiers={tiers}
         selectedId={selected?.id ?? null}
-        pendingToTiers={pendingRequests.map((r) => r.to_tier)} // FIX: per-tier pending check
+        pendingToTiers={pendingRequests.map((r) => r.to_tier)}
         onSelect={(t) => {
           setSelected(t);
           setError(false);
@@ -53,19 +92,11 @@ export function UpgradeForm() {
 
       <button
         type="button"
-        disabled={submitting}
-        onClick={() => {
-          if (!selected) {
-            setError(true);
-            return;
-          }
-          setSubmitting(true);
-          sessionStorage.setItem(TIER_KEY, JSON.stringify(selected));
-          navigate("/payment");
-        }}
+        disabled={submit.isPending}
+        onClick={handleConfirm}
         className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-2xl border-0 bg-[var(--text)] px-4 py-[18px] text-[15px] font-bold tracking-[-0.01em] text-[var(--bg)] transition hover:brightness-90 disabled:opacity-30"
       >
-        {submitting ? <Loader size={16} /> : "Confirm Upgrade"}
+        {submit.isPending ? <Loader size={16} /> : "Confirm Upgrade"}
       </button>
 
       <button

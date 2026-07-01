@@ -7,6 +7,8 @@ import type { TierOption, UpgradeRequest } from "@/types/upgrade";
 import type { PaymentRecord } from "@/types/payment";
 import type { AppNotification } from "@/types/notification";
 import type { Badge } from "@/types/badge";
+import type { UpgradeRequestDetail, PaymentReceipt } from "@/types/receipt";
+import { historyStatusLabel } from "@/lib/upgradeStatus";
 
 const API = import.meta.env.VITE_API_BASE_URL as string | undefined;
 /** In dev, default to same-origin `/api` proxy so LAN/localhost URLs all work. */
@@ -128,10 +130,7 @@ const TIER_PRICE_MAP: Record<string, string> = {
 };
 
 function statusLabel(raw: string): "Approved" | "Pending" | "Rejected" | "Under Review" {
-  if (raw === "APPROVED") return "Approved";
-  if (raw === "REJECTED") return "Rejected";
-  if (raw === "UNDER_REVIEW") return "Under Review";
-  return "Pending";
+  return historyStatusLabel(raw);
 }
 
 // â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -293,6 +292,15 @@ export async function markAllNotificationsRead() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapPayment(raw: any): PaymentRecord {
   const tier = raw.to_tier ?? raw.requested_tier ?? raw.tier ?? "Explorer";
+  const total = raw.total_amount != null ? Number(raw.total_amount) : null;
+  const paid = raw.amount_paid != null ? Number(raw.amount_paid) : null;
+  let amount = TIER_PRICE_MAP[tier] ?? raw.amount ?? "";
+  if (total != null && total > 0) {
+    amount =
+      paid != null && paid > 0
+        ? `$${paid.toLocaleString()} / $${total.toLocaleString()}`
+        : `$${total.toLocaleString()}`;
+  }
   return {
     id: raw.id,
     date: raw.created_at
@@ -303,7 +311,7 @@ function mapPayment(raw: any): PaymentRecord {
         })
       : raw.date ?? "",
     tier,
-    amount: TIER_PRICE_MAP[tier] ?? raw.amount ?? "",
+    amount,
     status: statusLabel(raw.status ?? ""),
     reference: raw.reference ?? `UPG-${raw.id?.slice(0, 6).toUpperCase() ?? "XXXXXX"}`,
     read: !raw.unread,
@@ -338,4 +346,50 @@ function mapBadge(raw: any): Badge {
 export async function getBadges(): Promise<Badge[]> {
   const data = await apiFetch<unknown[]>("/badges");
   return data.map(mapBadge);
+}
+
+// ── Public settings + feature flags ───────────────────────────
+
+export interface PublicSettings {
+  site_name: string;
+  site_tagline?: string | null;
+  logo_url?: string | null;
+  support_email?: string | null;
+  maintenance_mode: boolean;
+  upgrade_enabled: boolean;
+}
+
+export async function getPublicSettings(): Promise<PublicSettings> {
+  return apiFetch<PublicSettings>("/settings/public");
+}
+
+export type FeatureFlagsMap = Record<string, boolean>;
+
+export async function getFeatureFlags(): Promise<FeatureFlagsMap> {
+  return apiFetch<FeatureFlagsMap>("/feature-flags/public");
+}
+
+export async function getUpgradeRequestDetail(id: string): Promise<UpgradeRequestDetail> {
+  return apiFetch<UpgradeRequestDetail>(`/upgrade-requests/${id}`);
+}
+
+export async function getReceipts(requestId: string): Promise<PaymentReceipt[]> {
+  return apiFetch<PaymentReceipt[]>(`/upgrade-requests/${requestId}/receipts`);
+}
+
+export async function uploadReceipt(
+  requestId: string,
+  formData: FormData
+): Promise<PaymentReceipt> {
+  const res = await fetch(`${BASE}/upgrade-requests/${requestId}/receipts`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = json?.error?.message ?? json?.message ?? `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return (json?.data ?? json) as PaymentReceipt;
 }

@@ -1,13 +1,35 @@
 /**
- * notify.ts — shared helper for upgrade-request lifecycle notifications.
- * Creates an app notification row AND fires a Resend email (fire-and-forget).
- * Email failure never blocks the caller — it is logged and swallowed.
+ * notify.ts — upgrade-request lifecycle notifications.
+ * In-app row + outbound email (Mailtrap sandbox in dev, Resend in prod).
  */
 import type { SupabaseClient } from "./supabase";
+import type { Bindings } from "../types/env";
+import { sendEmail } from "./mail";
 
-export type UpgradeStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED";
+export type UpgradeStatus =
+  | "REQUESTED"
+  | "AWAITING_PAYMENT"
+  | "PAYMENT_SUBMITTED"
+  | "UNDER_REVIEW"
+  | "PARTIALLY_PAID"
+  | "APPROVED"
+  | "REJECTED"
+  | "PENDING";
 
-const CONTENT: Record<UpgradeStatus, (adminNotes?: string) => { title: string; message: string }> = {
+const CONTENT: Record<string, (adminNotes?: string) => { title: string; message: string }> = {
+  REQUESTED: () => ({
+    title: "Upgrade Request Received",
+    message: "We've received your request. Next step: payment instructions.",
+  }),
+  AWAITING_PAYMENT: () => ({
+    title: "Awaiting Payment",
+    message:
+      "Contact our team for secure payment instructions. Upload your receipt once you've paid.",
+  }),
+  PAYMENT_SUBMITTED: () => ({
+    title: "Receipt Received",
+    message: "Your receipt is in. We'll review it within 24 hours.",
+  }),
   PENDING: () => ({
     title: "Upgrade Request Submitted",
     message: "Your upgrade request has been received and is in queue for review.",
@@ -15,7 +37,11 @@ const CONTENT: Record<UpgradeStatus, (adminNotes?: string) => { title: string; m
   UNDER_REVIEW: () => ({
     title: "Your Request Is Under Review",
     message:
-      "An administrator has started reviewing your upgrade request. We'll notify you once a decision is made.",
+      "An administrator is checking your payment now. We'll notify you once a decision is made.",
+  }),
+  PARTIALLY_PAID: () => ({
+    title: "Partial Payment Received",
+    message: "Part of your payment was confirmed. Upload another receipt to complete your upgrade.",
   }),
   APPROVED: () => ({
     title: "Upgrade Request Approved",
@@ -29,34 +55,33 @@ const CONTENT: Record<UpgradeStatus, (adminNotes?: string) => { title: string; m
   }),
 };
 
+type MailEnv = Pick<
+  Bindings,
+  | "EMAIL_PROVIDER"
+  | "MAILTRAP_API_KEY"
+  | "MAILTRAP_INBOX_ID"
+  | "RESEND_API_KEY"
+  | "RESEND_FROM"
+>;
+
 export interface NotifyUpgradeInput {
   memberId: string;
   memberEmail: string;
   status: UpgradeStatus | string;
   adminNotes?: string;
   sb: SupabaseClient;
-  resendApiKey?: string;
-  resendFrom?: string;
-  resendReplyTo?: string;
+  mailEnv: MailEnv;
+  from: string;
+  replyTo?: string;
 }
 
 export async function notifyUpgradeStatus(input: NotifyUpgradeInput): Promise<void> {
-  const {
-    memberId,
-    memberEmail,
-    status,
-    adminNotes,
-    sb,
-    resendApiKey,
-    resendFrom,
-    resendReplyTo,
-  } = input;
+  const { memberId, memberEmail, status, adminNotes, sb, mailEnv, from, replyTo } = input;
   const contentFn = CONTENT[status as UpgradeStatus];
   if (!contentFn) return;
 
   const { title, message } = contentFn(adminNotes);
 
-  // 1. App notification row (side effect — wrap so it never blocks the main response)
   try {
     await sb.insert("notifications", {
       member_id: memberId,
@@ -69,45 +94,17 @@ export async function notifyUpgradeStatus(input: NotifyUpgradeInput): Promise<vo
     console.error("[notify] Failed to insert notification row:", err);
   }
 
-  // 2. Resend email — fire-and-forget, never blocks
-  if (resendApiKey && memberEmail && resendFrom) {
-    sendResendEmail({
-      apiKey: resendApiKey,
-      from: resendFrom,
-      replyTo: resendReplyTo,
-      to: memberEmail,
-      subject: title,
-      text: message,
-    }).catch((err) => console.error("[notify] Resend email failed:", err));
-  }
-}
-
-async function sendResendEmail(params: {
-  apiKey: string;
-  from: string;
-  to: string;
-  subject: string;
-  text: string;
-  replyTo?: string;
-}): Promise<void> {
-  const { apiKey, from, to, subject, text, replyTo } = params;
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      ...(replyTo ? { reply_to: replyTo } : {}),
-      subject,
-      text,
-      html: `<p style="font-family:sans-serif;line-height:1.6">${text}</p>`,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Resend error ${res.status}: ${err}`);
+  if (memberEmail && from) {
+    try {
+      await sendEmail(mailEnv, {
+        from,
+        replyTo,
+        to: memberEmail,
+        subject: title,
+        text: message,
+      });
+    } catch (err) {
+      console.error("[notify] Email failed:", err);
+    }
   }
 }

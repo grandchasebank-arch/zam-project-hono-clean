@@ -1,0 +1,46 @@
+# =============================================================================
+# Local dev template — copy to .dev.vars and fill in your values
+# =============================================================================
+#   cp .dev.vars.example .dev.vars
+#
+# Wrangler reads .dev.vars when you run: pnpm dev:api
+# Quick email test: POST http://127.0.0.1:8787/dev/mail-test
+# =============================================================================
+
+# --- Database (Supabase) ---
+# From: Supabase → Project Settings → API
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_ANON_KEY=your_anon_key
+
+# --- CORS ---
+# Comma-separated frontend URLs (no spaces)
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
+
+# --- Email provider switch ---
+# auto     → Mailtrap when MAILTRAP_API_KEY is set, else Resend (best for local dev)
+# mailtrap → always Mailtrap test inbox
+# resend   → always Resend (use on production Workers)
+EMAIL_PROVIDER=auto
+
+# --- Mailtrap (local testing) ---
+# REST API — not SMTP. Messages appear at mailtrap.io/inboxes (not real inboxes).
+# Get token: mailtrap.io → Settings → API Tokens
+MAILTRAP_API_KEY=your_mailtrap_api_token
+
+# Optional. Copy from inbox URL: mailtrap.io/inboxes/{id}
+# Leave blank to auto-discover your first inbox.
+MAILTRAP_INBOX_ID=
+
+# --- Resend (production) ---
+# Real email delivery. For Cloudflare deploy:
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put EMAIL_PROVIDER   → enter: resend
+# Do NOT set MAILTRAP_API_KEY in production.
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM=noreply@yourdomain.com
+
+# --- Dev login shortcuts (local only) ---
+# Match seed.sql member IDs. Frontend uses Bearer: dev-bypass / dev-bypass-admin
+DEV_BYPASS_MEMBER_ID=10000000-0000-0000-0000-000000000001
+DEV_BYPASS_ADMIN_MEMBER_ID=10000000-0000-0000-0000-000000000002

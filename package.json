@@ -17,7 +17,7 @@
     "build": "pnpm -r run build",
     "deploy:api": "pnpm --filter backend run deploy",
     "deploy:web": "pnpm --filter frontend run deploy",
-    "deploy:admin": "pnpm --filter admin run build",
+    "deploy:admin": "pnpm --filter admin run deploy",
     "deploy": "pnpm run build && pnpm run deploy:api && pnpm run deploy:web"
   },
   "devDependencies": {

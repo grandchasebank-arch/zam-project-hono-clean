@@ -16,6 +16,8 @@ import eventBookings from "./routes/event-bookings";
 import tiers from "./routes/tiers";
 import settings from "./routes/settings";
 import admin from "./routes/admin";
+import featureFlags from "./routes/feature-flags";
+import mailTest from "./routes/mail-test";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -48,6 +50,8 @@ app.onError(errorHandler);
 app.get("/", (c) => c.json({ status: "zamproject API OK", time: new Date().toISOString() }));
 app.get("/health", (c) => c.json({ success: true, data: { healthy: true } }));
 
+app.route("/dev", mailTest);
+
 app.route("/members", members);
 app.route("/notifications", notifications);
 app.route("/upgrade-requests", upgradeRequests);
@@ -59,6 +63,7 @@ app.route("/tier-change-history", tierChangeHistory);
 app.route("/event-bookings", eventBookings);
 app.route("/tiers", tiers);
 app.route("/settings", settings);
+app.route("/feature-flags", featureFlags);
 app.route("/admin", admin);
 
 export default app;

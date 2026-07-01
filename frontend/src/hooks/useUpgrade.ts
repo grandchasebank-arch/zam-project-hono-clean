@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import * as api from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import type { UpgradeRequest } from "@/types/upgrade";
+import type { UpgradeRequestDetail } from "@/types/receipt";
 
 const SESSION_KEY = "spacex_session";
 const API = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -66,11 +67,19 @@ export function usePendingRequests() {
   });
 }
 
+export function useUpgradeRequest(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.upgradeRequest(id ?? ""),
+    queryFn: () => api.getUpgradeRequestDetail(id!),
+    enabled: !!id,
+  });
+}
+
 export function useSubmitUpgrade() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (req: UpgradeRequest) =>
-      authFetch<{ id: string }>("/upgrade-requests", {
+      authFetch<UpgradeRequestDetail>("/upgrade-requests", {
         method: "POST",
         body: JSON.stringify({
           from_tier: req.current_tier,
@@ -78,8 +87,8 @@ export function useSubmitUpgrade() {
         }),
       }),
     onSuccess: () => {
-      toast.success("Upgrade request submitted!", {
-        description: "Your request is under review. We'll notify you on any update.",
+      toast.success("Upgrade request created", {
+        description: "Follow the payment instructions to complete your upgrade.",
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.history() }); // FIX: refresh history
       queryClient.invalidateQueries({ queryKey: queryKeys.member() }); // FIX: refresh member tier
