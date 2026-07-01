@@ -12,7 +12,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <App />
     <Toaster
       position="top-right"
-      mobilePosition="bottom-center"
       richColors
       closeButton
       duration={4000}

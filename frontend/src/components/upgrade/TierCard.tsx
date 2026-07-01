@@ -72,7 +72,7 @@ export function TierCard({ tier, selected, isPendingReview = false, onSelect }: 
           className="list-none border-t border-[var(--border)] px-6 pb-8 pt-6"
           style={{ borderTop: selected ? "1px solid var(--border)" : "none" }}
         >
-          {tier.features.map((f, i) => (
+          {(tier.features ?? []).map((f, i) => (
             <li
               key={i}
               className="mb-2.5 flex gap-3 text-xs leading-[1.4] text-[var(--muted)]"

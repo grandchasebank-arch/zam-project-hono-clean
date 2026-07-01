@@ -88,6 +88,10 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_API_BASE_URL: ${{ needs.deploy-api.outputs.worker_url }}
 
+      - name: Ensure Pages project exists
+        working-directory: frontend
+        run: pnpm exec wrangler pages project create zamproject-frontend --production-branch=main 2>/dev/null || true
+
       - name: Deploy Pages
         working-directory: frontend
         run: pnpm exec wrangler pages deploy dist --project-name=zamproject-frontend
@@ -112,6 +116,10 @@ jobs:
         run: pnpm --filter admin run build
         env:
           VITE_API_BASE_URL: ${{ needs.deploy-api.outputs.worker_url }}
+
+      - name: Ensure Pages project exists
+        working-directory: admin
+        run: pnpm exec wrangler pages project create zamproject-admin --production-branch=main 2>/dev/null || true
 
       - name: Deploy Pages
         working-directory: admin

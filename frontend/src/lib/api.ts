@@ -216,6 +216,8 @@ function mapTier(raw: any): TierOption {
   return {
     id: raw.id,
     name: raw.name,
+    label: raw.label ?? raw.name,
+    rank: typeof raw.rank === "number" ? raw.rank : 0,
     price: raw.price,
     priceValue: typeof raw.price_cents === "number" ? raw.price_cents / 100 : raw.priceValue ?? 0,
     clearance,
